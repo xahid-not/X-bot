@@ -36,7 +36,7 @@ Contact:
 
     if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
 
-    const imgLink = "https://i.imgur.com/1G4ZhU7.jpeg";
+    const imgLink = "https://imgur.com/oU7Rt3g";
 
     const send = () => {
       api.sendMessage(
