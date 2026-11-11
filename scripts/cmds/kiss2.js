@@ -1,74 +1,151 @@
+
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
 const baseApiUrl = async () => {
   const base = await axios.get(
-    "https://raw.githubusercontent.com/mahmudx7/HINATA/main/baseApiUrl.json"
+    "https://raw.githubusercontent.com/mahmudx7/HINATA/main/baseApiUrl.json",
+    { timeout: 15000 }
   );
   return base.data.mahmud;
 };
 
 /**
-* @author MahMUD
-* @author: do not delete it
-*/
+ * @author MahMUD
+ * @author: do not delete it
+ */
 
 module.exports = {
   config: {
     name: "kiss2",
     aliases: ["k2"],
-    version: "1.7",
+    version: "1.8",
     author: "MahMUD",
     role: 0,
     category: "fun",
     cooldown: 8,
-    guide: "kiss2 [mention/reply/UID]",
+    guide: "{pn}kiss2 [mention/reply/UID]"
   },
 
   onStart: async function ({ api, event, args }) {
     const obfuscatedAuthor = String.fromCharCode(77, 97, 104, 77, 85, 68);
+
     if (module.exports.config.author !== obfuscatedAuthor) {
-      return api.sendMessage("You are not authorized to change the author name.", event.threadID, event.messageID);
+      return api.sendMessage(
+        "You are not authorized to change the author name.",
+        event.threadID,
+        event.messageID
+      );
     }
 
-    const { threadID, messageID, messageReply, mentions, senderID } = event;
-    const type = args[0];
+    const {
+      threadID,
+      messageID,
+      messageReply,
+      mentions,
+      senderID
+    } = event;
 
-    if (!type) return api.sendMessage("Use: fun slap @tag", threadID, messageID);
+    let targetID = null;
 
-    let id = senderID;
-    let id2;
-
-    if (messageReply) {
-      id2 = messageReply.senderID;
-    } else if (Object.keys(mentions).length > 0) {
-      id2 = Object.keys(mentions)[0];
-    } else if (args[1]) {
-      id2 = args[1];
-    } else {
-      return api.sendMessage("Mention, reply, or provide UID of the target.", threadID, messageID);
+    // 1. Reply to someone's message
+    if (messageReply && messageReply.senderID) {
+      targetID = messageReply.senderID;
     }
 
-    try {
-      const url = `${await baseApiUrl()}/api/dig?type=kiss&user=${id}&user2=${id2}`;
+    // 2. Mention someone
+    else if (mentions && Object.keys(mentions).length > 0) {
+      targetID = Object.keys(mentions)[0];
+    }
 
-      const response = await axios.get(url, { responseType: "arraybuffer" });
-      const filePath = path.join(__dirname, `kiss_${id2}.png`);
-      fs.writeFileSync(filePath, response.data);
+    // 3. Provide UID directly
+    else {
+      targetID = args.find(arg => /^\d+$/.test(arg));
+    }
 
-      api.sendMessage(
-        {
-          attachment: fs.createReadStream(filePath),
-          body: `Effect kiss successful 💋`
-        },
+    if (!targetID) {
+      return api.sendMessage(
+        "💋 Please mention someone, reply to their message, or provide their UID.\n\n" +
+        "Usage:\n" +
+        "kiss2 @mention\n" +
+        "Reply + kiss2\n" +
+        "kiss2 1000123456789",
         threadID,
-        () => fs.unlinkSync(filePath),
         messageID
       );
+    }
+
+    if (targetID === senderID) {
+      return api.sendMessage(
+        "😂 You cannot kiss yourself!",
+        threadID,
+        messageID
+      );
+    }
+
+    let filePath;
+
+    try {
+      const baseURL = await baseApiUrl();
+
+      if (!baseURL) {
+        throw new Error("API URL not found");
+      }
+
+      const url =
+        `${baseURL.replace(/\/+$/, "")}/api/dig` +
+        `?type=kiss&user=${encodeURIComponent(senderID)}` +
+        `&user2=${encodeURIComponent(targetID)}`;
+
+      const response = await axios.get(url, {
+        responseType: "arraybuffer",
+        timeout: 45000
+      });
+
+      if (!response.data || response.data.length === 0) {
+        throw new Error("Empty image response");
+      }
+
+      const cacheDir = path.join(__dirname, "cache");
+
+      fs.mkdirSync(cacheDir, { recursive: true });
+
+      filePath = path.join(
+        cacheDir,
+        `kiss2_${senderID}_${targetID}_${Date.now()}.png`
+      );
+
+      fs.writeFileSync(filePath, Buffer.from(response.data));
+
+      return api.sendMessage(
+        {
+          body: "💋 Effect kiss successful!",
+          attachment: fs.createReadStream(filePath)
+        },
+        threadID,
+        (err) => {
+          if (err) console.error("[KISS2] Send error:", err);
+
+          if (filePath && fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        },
+        messageID
+      );
+
     } catch (err) {
-      console.error(err);
-      api.sendMessage(`🥹error, contact MahMUD.`, threadID, messageID);
+      console.error("[KISS2 ERROR]", err);
+
+      if (filePath && fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      return api.sendMessage(
+        "🥹 Kiss image generation failed. Please try again later.",
+        threadID,
+        messageID
+      );
     }
   }
 };
