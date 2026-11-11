@@ -177,7 +177,7 @@ module.exports.onStart = async function ({ api, event, args, usersData }) {
     }
 
     if (!query) {
-      const texts = ["ami shudhu sagorer baby", "hae,bolo na"];
+      const texts = ["ami shudhu sagorer baby💗", "hae,bolo na","sagorer hok ache shudhu amake baby dakar😾"];
       const reply = texts[Math.floor(Math.random() * texts.length)];
       return api.sendMessage(reply, event.threadID);
     }
