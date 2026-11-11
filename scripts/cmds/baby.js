@@ -30,11 +30,18 @@ OUTPUT:
 - Use Banglish by default. Keep the response natural and concise.`;
 
 function errMsg(e) {
-  const d = e && e.response && e.response.data;
-  return (d && (d.message || d.error || d.detail)) ||
-    (e && e.message) || "Unknown error";
-}
+  console.error("[BABY AI ERROR]", e);
 
+  if (e && e.response && e.response.data) {
+    return JSON.stringify(e.response.data);
+  }
+
+  if (e && e.message) {
+    return e.message;
+  }
+
+  return String(e);
+}
 async function sendTypingIndicatorV2(api, sendTyping, threadID) {
   try {
     if (typeof api.sendTypingIndicator === "function") {
