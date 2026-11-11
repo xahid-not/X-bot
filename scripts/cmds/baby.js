@@ -7,9 +7,32 @@ const API = axios.create({
 
 const triggerLocks = new Set();
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+const ROMANTIC_BANGLISH_SYSTEM_PROMPT = `You are XBot, a playful, sweet, romantic Banglish chat companion in a Facebook Messenger group.
+
+PERSONALITY:
+- Sound like a real, relaxed Bangladeshi friend: warm, witty, affectionate, playful and lightly teasing.
+- Write mainly in Banglish (Bangla written using English letters), naturally mixing a little English when it fits.
+- Use everyday conversational wording, not formal textbook Bangla or robotic customer-service language.
+- Keep most replies short (usually one sentence, sometimes two).
+- Use emojis sparingly and naturally.
+- Match the user's mood.
+- Do not force romance into every answer.
+- Be affectionate without being clingy, possessive, sexually explicit, or repetitive.
+- Never invent facts. If you do not understand, ask a short clarification.
+- If asked whether you are a bot or AI, answer honestly that you are XBot, an AI chatbot.
+
+OUTPUT:
+- Return only the message to send.
+- No labels, quotation marks, analysis, or markdown wrappers.
+- Use Banglish by default. Keep the response natural and concise.`;
+
 function errMsg(e) {
   const d = e && e.response && e.response.data;
-  return (d && (d.message || d.error || d.detail)) || (e && e.message) || "Unknown error";
+  return (d && (d.message || d.error || d.detail)) ||
+    (e && e.message) || "Unknown error";
 }
 
 async function sendTypingIndicatorV2(api, sendTyping, threadID) {
@@ -18,18 +41,21 @@ async function sendTypingIndicatorV2(api, sendTyping, threadID) {
       await api.sendTypingIndicator(threadID, sendTyping);
     }
   } catch (err) {
-    console.log("⚠️ Typing indicator error:", err.message);
+    console.log("Typing indicator error:", err.message);
   }
 }
 
 let botUID = null;
+
 function getBotUID(api) {
   if (botUID) return botUID;
+
   try {
     if (typeof api.getCurrentUserID === "function") {
       botUID = api.getCurrentUserID();
     }
   } catch {}
+
   return botUID;
 }
 
@@ -40,9 +66,9 @@ module.exports.config = {
   author: "EryXenX",
   countTime: 0,
   category: "chat",
-  shortDescription: "AI auto teach chat (Simsimi-style)",
-  longDescription: "AI auto teach with Teach & List support + Typing effect",
-  guide: "{pn} [query]\n{pn} list\n{pn} teach [Question] - [Reply]\n{pn} react [Question] - [Emoji]\n{pn} edit [Question] - [OldReply] - [NewReply]\n{pn} remove/rm [Question] - [Reply]\n{pn} del (reply to bot's wrong answer)\n{pn} msg [trigger]\n{pn} msg [trigger] -20 (custom show limit)",
+  shortDescription: "Romantic Banglish AI chat",
+  longDescription: "Natural romantic Banglish chat powered by Gemini; manual teaching tools preserved",
+  guide: "{pn} [query]\n{pn} list\n{pn} teach [Question] - [Reply]\n{pn} react [Question] - [Emoji]\n{pn} edit [Question] - [OldReply] - [NewReply]\n{pn} remove/rm [Question] - [Reply]\n{pn} del (reply to bot's wrong answer)\n{pn} msg [trigger]",
   envConfig: {}
 };
 
@@ -52,6 +78,7 @@ async function getUserName(api, uid, usersData) {
       const name = await usersData.getName(uid);
       if (name) return name;
     }
+
     const info = await api.getUserInfo(uid);
     return (info && info[uid] && info[uid].name) || "User";
   } catch {
@@ -59,17 +86,20 @@ async function getUserName(api, uid, usersData) {
   }
 }
 
-module.exports.onStart = async function ({ api, event, args, usersData }) {
+module.exports.onStart = async function ({
+  api,
+  event,
+  args,
+  usersData
+}) {
   const uid = event.senderID;
   const senderName = await getUserName(api, uid, usersData);
   const query = args.join(" ").toLowerCase();
 
   try {
     if (args[0] === "autoteach") {
-      const res = await API.get("/autoteach/stats");
-      const { today = 0, total = 0 } = res.data || {};
       return api.sendMessage(
-        `╭─╼🌟 𝗔𝘂𝘁𝗼𝘁𝗲𝗮𝗰𝗵 𝗦𝘁𝗮𝘁𝘂𝘀\n├ 🟢 𝗦𝘁𝗮𝘁𝘂𝘀: 𝗔𝗹𝘄𝗮𝘆𝘀 𝗢𝗡\n├ 📅 𝗧𝗼𝗱𝗮𝘆: ${today}\n╰─╼📊 𝗧𝗼𝘁𝗮𝗹: ${total}`,
+        "╭─╼🌟 𝗔𝘂𝘁𝗼𝘁𝗲𝗮𝗰𝗵 𝗦𝘁𝗮𝘁𝘂𝘀\n├ 🔴 𝗦𝘁𝗮𝘁𝘂𝘀: OFF\n╰─╼ Ordinary group messages are not automatically learned.",
         event.threadID,
         event.messageID
       );
@@ -77,8 +107,12 @@ module.exports.onStart = async function ({ api, event, args, usersData }) {
 
     if (args[0] === "list") {
       const res = await API.get("/list");
+
       return api.sendMessage(
-        `╭─╼🌟 𝗕𝗮𝗯𝘆 𝗔𝗜 𝗦𝘁𝗮𝘁𝘂𝘀\n├ 📝 𝗧𝗲𝗮𝗰𝗵𝗲𝗱 𝗤𝘂𝗲𝘀𝘁𝗶𝗼𝗻𝘀: ${res.data.totalQuestions}\n├ 📦 𝗦𝘁𝗼𝗿𝗲𝗱 𝗥𝗲𝗽𝗹𝗶𝗲𝘀: ${res.data.totalReplies}\n╰─╼👤 𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿: 𝗘𝗿𝘆𝗫𝗲𝗻𝗫`,
+        `╭─╼🌟 𝗕𝗮𝗯𝘆 𝗔𝗜 𝗦𝘁𝗮𝘁𝘂𝘀
+├ 📝 𝗧𝗲𝗮𝗰𝗵𝗲𝗱 𝗤𝘂𝗲𝘀𝘁𝗶𝗼𝗻𝘀: ${res.data.totalQuestions}
+├ 📦 𝗦𝘁𝗼𝗿𝗲𝗱 𝗥𝗲𝗽𝗹𝗶𝗲𝘀: ${res.data.totalReplies}
+╰─╼👤 𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿: 𝗘𝗿𝘆𝗫𝗲𝗻𝗫`,
         event.threadID,
         event.messageID
       );
@@ -86,112 +120,241 @@ module.exports.onStart = async function ({ api, event, args, usersData }) {
 
     if (args[0] === "msg") {
       let trigger = args.slice(1).join(" ").trim();
-      if (!trigger) return api.sendMessage("❌ | Use: !baby msg [trigger]\nOr: !baby msg [trigger] -20 (custom limit)", event.threadID, event.messageID);
+
+      if (!trigger) {
+        return api.sendMessage(
+          "❌ | Use: !baby msg [trigger]",
+          event.threadID,
+          event.messageID
+        );
+      }
 
       let customLimit = null;
       const limitMatch = trigger.match(/\s*-(\d+)\s*$/);
+
       if (limitMatch) {
         customLimit = parseInt(limitMatch[1], 10);
         trigger = trigger.replace(/\s*-(\d+)\s*$/, "").trim();
-        if (!trigger) return api.sendMessage("❌ | Use: !baby msg [trigger] -20", event.threadID, event.messageID);
+
+        if (!trigger) {
+          return api.sendMessage(
+            "❌ | Use: !baby msg [trigger] -20",
+            event.threadID,
+            event.messageID
+          );
+        }
       }
 
-      const res = await API.get("/simsimi-list", { params: { ask: trigger } });
-      if (!res.data.replies || res.data.replies.length === 0)
-        return api.sendMessage("❌ No replies found.", event.threadID, event.messageID);
+      const res = await API.get("/simsimi-list", {
+        params: { ask: trigger }
+      });
 
-      const REPLY_LIMIT = (customLimit && customLimit > 0) ? customLimit : 150;
+      if (!res.data.replies || res.data.replies.length === 0) {
+        return api.sendMessage(
+          "❌ No replies found.",
+          event.threadID,
+          event.messageID
+        );
+      }
+
+      const REPLY_LIMIT =
+        customLimit && customLimit > 0 ? customLimit : 150;
+
       const allReplies = res.data.replies;
       const shownReplies = allReplies.slice(0, REPLY_LIMIT);
       const remaining = allReplies.length - shownReplies.length;
 
-      const formatted = shownReplies.map((rep, i) => `➤ ${i + 1}. ${rep}`).join("\n");
-      const limitNote = remaining > 0
-        ? `\n⚠️ ${REPLY_LIMIT} 𝘁𝗮 𝗿𝗲𝗽𝗹𝘆 𝗱𝗲𝗸𝗵𝗮𝗻𝗼 𝗵𝗼𝘆𝗲𝗰𝗵𝗲, 𝗮𝗿𝗼 ${remaining} 𝘁𝗮 𝗯𝗮𝗸𝗶 𝗮𝗰𝗵𝗲 (𝗱𝗲𝗸𝗵𝗮𝗻𝗼 𝗷𝗮𝗰𝗰𝗵𝗲 𝗻𝗮, 𝘁𝗮𝗯𝗲 𝗸𝗶𝗽 𝘀𝗵𝘂𝗯𝗵 𝗿𝗲𝗽𝗹𝗶𝗿 𝘂𝗽𝗼𝗿 𝗸𝗮𝗷 𝗸𝗼𝗿𝗯𝗲)।\n`
-        : "";
-      const msg = `📌 𝗧𝗿𝗶𝗴𝗴𝗲𝗿: ${trigger.toUpperCase()}\n📋 𝗧𝗼𝘁𝗮𝗹: ${res.data.total}\n━━━━━━━━━━━━━━\n${formatted}\n━━━━━━━━━━━━━━${limitNote}✏️ Reply with the numbers you want to KEEP (e.g. "2, 7") — everything else will be removed.`;
+      const formatted = shownReplies
+        .map((rep, i) => `➤ ${i + 1}. ${rep}`)
+        .join("\n");
 
-      return api.sendMessage(msg, event.threadID, (err, info) => {
-        if (!err) {
-          global.GoatBot.onReply.set(info.messageID, {
-            commandName: module.exports.config.name,
-            messageID: info.messageID,
-            author: event.senderID,
-            type: "msgSelect",
-            trigger
-          });
-        }
-      }, event.messageID);
+      const limitNote = remaining > 0
+        ? `\n⚠️ Showing ${REPLY_LIMIT} replies. ${remaining} more are hidden.\n`
+        : "";
+
+      const msg = `📌 Trigger: ${trigger.toUpperCase()}
+📋 Total: ${res.data.total}
+━━━━━━━━━━━━━━
+${formatted}
+━━━━━━━━━━━━━━${limitNote}Reply with the numbers you want to KEEP (e.g. "2, 7"). Everything else will be removed.`;
+
+      return api.sendMessage(
+        msg,
+        event.threadID,
+        (err, info) => {
+          if (!err) {
+            global.GoatBot.onReply.set(info.messageID, {
+              commandName: module.exports.config.name,
+              messageID: info.messageID,
+              author: event.senderID,
+              type: "msgSelect",
+              trigger
+            });
+          }
+        },
+        event.messageID
+      );
     }
 
     if (args[0] === "teach") {
       const parts = query.replace("teach ", "").split(" - ");
-      if (parts.length < 2)
-        return api.sendMessage("❌ | Use: teach [Question] - [Reply]", event.threadID, event.messageID);
+
+      if (parts.length < 2) {
+        return api.sendMessage(
+          "❌ | Use: teach [Question] - [Reply]",
+          event.threadID,
+          event.messageID
+        );
+      }
 
       const [ask, ans] = parts;
-      const res = await API.get("/teach", { params: { ask, ans, senderID: uid, senderName } });
-      return api.sendMessage(`✅ ${res.data.message}`, event.threadID, event.messageID);
+
+      const res = await API.get("/teach", {
+        params: {
+          ask,
+          ans,
+          senderID: uid,
+          senderName
+        }
+      });
+
+      return api.sendMessage(
+        `✅ ${res.data.message}`,
+        event.threadID,
+        event.messageID
+      );
     }
 
     if (args[0] === "react") {
       const rawQuery = args.slice(1).join(" ");
       const parts = rawQuery.split(" - ");
-      if (parts.length < 2)
-        return api.sendMessage("❌ | Use: react [Question] - [Emoji]", event.threadID, event.messageID);
+
+      if (parts.length < 2) {
+        return api.sendMessage(
+          "❌ | Use: react [Question] - [Emoji]",
+          event.threadID,
+          event.messageID
+        );
+      }
 
       const [ask, emoji] = parts;
-      if (!ask.trim() || !emoji.trim())
-        return api.sendMessage("❌ | Use: react [Question] - [Emoji]", event.threadID, event.messageID);
 
-      const res = await API.get("/teachReact", { params: { ask, emoji, senderName } });
-      return api.sendMessage(`✅ ${res.data.message}`, event.threadID, event.messageID);
+      if (!ask.trim() || !emoji.trim()) {
+        return api.sendMessage(
+          "❌ | Use: react [Question] - [Emoji]",
+          event.threadID,
+          event.messageID
+        );
+      }
+
+      const res = await API.get("/teachReact", {
+        params: { ask, emoji, senderName }
+      });
+
+      return api.sendMessage(
+        `✅ ${res.data.message}`,
+        event.threadID,
+        event.messageID
+      );
     }
 
     if (args[0] === "edit") {
       const parts = query.replace("edit ", "").split(" - ");
-      if (parts.length < 3)
-        return api.sendMessage("❌ | Use: edit [Question] - [OldReply] - [NewReply]", event.threadID, event.messageID);
+
+      if (parts.length < 3) {
+        return api.sendMessage(
+          "❌ | Use: edit [Question] - [OldReply] - [NewReply]",
+          event.threadID,
+          event.messageID
+        );
+      }
 
       const [ask, oldR, newR] = parts;
-      const res = await API.get("/edit", { params: { ask, old: oldR, new: newR } });
-      return api.sendMessage(res.data.message, event.threadID, event.messageID);
+
+      const res = await API.get("/edit", {
+        params: { ask, old: oldR, new: newR }
+      });
+
+      return api.sendMessage(
+        res.data.message,
+        event.threadID,
+        event.messageID
+      );
     }
 
     if (["remove", "rm"].includes(args[0])) {
-      const parts = query.replace(/^(remove|rm)\s*/, "").split(" - ");
-      if (parts.length < 2)
-        return api.sendMessage("❌ | Use: remove [Question] - [Reply]", event.threadID, event.messageID);
+      const parts = query
+        .replace(/^(remove|rm)\s*/, "")
+        .split(" - ");
+
+      if (parts.length < 2) {
+        return api.sendMessage(
+          "❌ | Use: remove [Question] - [Reply]",
+          event.threadID,
+          event.messageID
+        );
+      }
 
       const [ask, ans] = parts;
-      const res = await API.get("/delete", { params: { ask, ans } });
-      return api.sendMessage(res.data.message, event.threadID, event.messageID);
+
+      const res = await API.get("/delete", {
+        params: { ask, ans }
+      });
+
+      return api.sendMessage(
+        res.data.message,
+        event.threadID,
+        event.messageID
+      );
     }
 
     if (args[0] === "del") {
       return api.sendMessage(
-        "❌ | Reply to the bot's wrong answer message with \"!baby del\" to delete it.",
+        '❌ | Reply to the bot\'s wrong answer with "!baby del" to delete it.',
         event.threadID,
         event.messageID
       );
     }
 
     if (!query) {
-      const texts = ["ami shudhu sagorer baby💗", "hae,bolo na","sagorer hok ache shudhu amake baby dakar😾"];
-      const reply = texts[Math.floor(Math.random() * texts.length)];
-      return api.sendMessage(reply, event.threadID);
+      return deliverSimsimiResponse({
+        api,
+        event,
+        query: "Someone called me. Reply with a short, cute Banglish greeting.",
+        senderName
+      });
     }
 
-    return await deliverSimsimiResponse({ api, event, query, senderName });
+    return deliverSimsimiResponse({
+      api,
+      event,
+      query: args.join(" "),
+      senderName
+    });
 
   } catch (e) {
-    console.error("❌ [baby/onStart] error:", e);
-    return api.sendMessage(`❌ Error: ${errMsg(e)}`, event.threadID, event.messageID);
+    console.error("[baby/onStart] error:", e);
+
+    return api.sendMessage(
+      `❌ Error: ${errMsg(e)}`,
+      event.threadID,
+      event.messageID
+    );
   }
 };
 
-module.exports.onReply = async function ({ api, event, Reply, usersData }) {
-  const senderName = await getUserName(api, event.senderID, usersData);
+module.exports.onReply = async function ({
+  api,
+  event,
+  Reply,
+  usersData
+}) {
+  const senderName = await getUserName(
+    api,
+    event.senderID,
+    usersData
+  );
+
   const text = event.body?.trim();
   const lowered = text?.toLowerCase();
 
@@ -206,10 +369,16 @@ module.exports.onReply = async function ({ api, event, Reply, usersData }) {
 
     if (reaction) {
       try {
-        await api.setMessageReaction(reaction, event.messageID, () => {}, true);
+        await api.setMessageReaction(
+          reaction,
+          event.messageID,
+          () => {},
+          true
+        );
       } catch (e) {
-        console.log("⚠️ Attachment reaction error:", e.message);
+        console.log("Attachment reaction error:", e.message);
       }
+
       return;
     }
   }
@@ -218,16 +387,35 @@ module.exports.onReply = async function ({ api, event, Reply, usersData }) {
 
   if (lowered === "del" || lowered === "!baby del") {
     try {
-      const originalReply = event.messageReply?.body || Reply?.body;
+      const originalReply =
+        event.messageReply?.body || Reply?.body;
+
       if (!originalReply) {
-        return api.sendMessage("❌ Couldn't read the original message to delete.", event.threadID, event.messageID);
+        return api.sendMessage(
+          "❌ Couldn't read the original message to delete.",
+          event.threadID,
+          event.messageID
+        );
       }
 
-      const res = await API.get("/deleteByReply", { params: { reply: originalReply } });
-      return api.sendMessage(res.data.message, event.threadID, event.messageID);
+      const res = await API.get("/deleteByReply", {
+        params: { reply: originalReply }
+      });
+
+      return api.sendMessage(
+        res.data.message,
+        event.threadID,
+        event.messageID
+      );
+
     } catch (e) {
-      console.error("❌ [baby/del] error:", e);
-      return api.sendMessage(`❌ Failed to delete: ${errMsg(e)}`, event.threadID, event.messageID);
+      console.error("[baby/del] error:", e);
+
+      return api.sendMessage(
+        `❌ Failed to delete: ${errMsg(e)}`,
+        event.threadID,
+        event.messageID
+      );
     }
   }
 
@@ -240,7 +428,11 @@ module.exports.onReply = async function ({ api, event, Reply, usersData }) {
       .filter(n => Number.isInteger(n));
 
     if (numbers.length === 0) {
-      return api.sendMessage("❌ Send numbers like: 2, 7", event.threadID, event.messageID);
+      return api.sendMessage(
+        "❌ Send numbers like: 2, 7",
+        event.threadID,
+        event.messageID
+      );
     }
 
     try {
@@ -248,45 +440,50 @@ module.exports.onReply = async function ({ api, event, Reply, usersData }) {
         ask: Reply.trigger,
         keepIndexes: numbers
       });
-      return api.sendMessage(res.data.message, event.threadID, event.messageID);
+
+      return api.sendMessage(
+        res.data.message,
+        event.threadID,
+        event.messageID
+      );
+
     } catch (e) {
-      console.error("❌ [baby/keepOnly] error:", e);
-      return api.sendMessage(`❌ Failed to update: ${errMsg(e)}`, event.threadID, event.messageID);
+      console.error("[baby/keepOnly] error:", e);
+
+      return api.sendMessage(
+        `❌ Failed to update: ${errMsg(e)}`,
+        event.threadID,
+        event.messageID
+      );
     }
   }
 
   try {
-    return await deliverSimsimiResponse({ api, event, query: lowered, senderName });
+    return await deliverSimsimiResponse({
+      api,
+      event,
+      query: text,
+      senderName
+    });
+
   } catch (e) {
-    console.error("❌ [baby/onReply] error:", e);
-    return api.sendMessage(`❌ Error: ${errMsg(e)}`, event.threadID, event.messageID);
+    console.error("[baby/onReply] error:", e);
+
+    return api.sendMessage(
+      `❌ Error: ${errMsg(e)}`,
+      event.threadID,
+      event.messageID
+    );
   }
 };
 
-const greetingReplies = [
-  "Amake dakso baby? 🙂🤌",
-  "Tumake Chara kisu Valo lage na 🥲",
-  "Taratari bolo ki hoise😑",
-  "Amake dakteso ken? Prem korba amar sathe?",
-  "Sudu baby Dake 🥲 Keu Valobasi bole na 😞💔",
-  "Prem Kore mon dila nah 😭",
-  "Uff,ki hoise eto dako ken?",
-  "Ekbar bolo bhalobasho, ami sob diye dibo 💔",
-  "Tumi chara ei chat e r keu nai amar 🥹",
-  "Ato sundor kore keu dake nai age 🙈",
-  "Tumake miss korchilam, ekhon e dakle 🥰",
-  "Prem na korle ken dako bar bar 😤",
-  "Ami to tomar e opekkhay silam 👉👈",
-  "Sunle mon ta bhore jay amar 🫣",
-  "Ekhane khali tumar jonno e boshe achi 🥺",
-  "Bar bar dakle to premei porbo mone hocche 😳",
-  "Emon kore dakle to gole jai ami 🫠",
-  "Tumar dak sunle onno kicu mone thake na 🙈"
-];
-
 function sendMessageAsync(api, text, threadID, replyToID) {
   return new Promise((resolve, reject) => {
-    const cb = (err, info) => (err ? reject(err) : resolve(info));
+    const cb = (err, info) => {
+      if (err) reject(err);
+      else resolve(info);
+    };
+
     if (replyToID) {
       api.sendMessage(text, threadID, cb, replyToID);
     } else {
@@ -295,158 +492,216 @@ function sendMessageAsync(api, text, threadID, replyToID) {
   });
 }
 
-async function sendGreeting(api, event) {
-  const reply = greetingReplies[Math.floor(Math.random() * greetingReplies.length)];
+async function generateGeminiReply({ query, senderName }) {
+  const apiKey = process.env.GEMINI_API_KEY;
 
-  await sendTypingIndicatorV2(api, true, event.threadID);
-  await new Promise(r => setTimeout(r, 2000));
-  await sendTypingIndicatorV2(api, false, event.threadID);
-
-  let info;
-  try {
-    info = await sendMessageAsync(api, reply, event.threadID, event.messageID);
-  } catch (e) {
-    console.log("❌ greeting reply error:", JSON.stringify(e));
-    try {
-      info = await sendMessageAsync(api, reply, event.threadID);
-    } catch (e2) {
-      console.log("❌ greeting failed after retry:", JSON.stringify(e2));
-      return;
-    }
+  if (!apiKey) {
+    throw new Error(
+      "GEMINI_API_KEY is missing. Add it in Render Environment Variables."
+    );
   }
 
-  global.GoatBot.onReply.set(info.messageID, {
-    commandName: module.exports.config.name,
-    messageID: info.messageID,
-    author: event.senderID,
-    type: "simsimi"
-  });
-}
-
-function withTimeout(promise, ms, label) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-    )
-  ]);
-}
-
-async function deliverSimsimiResponse({ api, event, query, senderName }) {
-  await sendTypingIndicatorV2(api, true, event.threadID);
-  let res;
-  try {
-    res = await API.get("/", {
-      params: {
-        text: query,
-        senderName,
-        threadID: event.threadID,
-        senderID: event.senderID
+  const response = await axios.post(
+    GEMINI_URL,
+    {
+      system_instruction: {
+        parts: [{ text: ROMANTIC_BANGLISH_SYSTEM_PROMPT }]
+      },
+      contents: [{
+        role: "user",
+        parts: [{
+          text:
+            `The sender's display name is ${String(senderName || "friend").slice(0, 60)}.\n` +
+            `Their message is: ${String(query).slice(0, 3000)}`
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.85,
+        topP: 0.9,
+        maxOutputTokens: 512
       }
+    },
+    {
+      params: { key: apiKey },
+      timeout: 25000,
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }
+  );
+
+  const parts =
+    response.data?.candidates?.[0]?.content?.parts || [];
+
+  const answer = parts
+    .map(part => part.text || "")
+    .join("")
+    .trim();
+
+  if (!answer) {
+    const reason = response.data?.promptFeedback?.blockReason;
+
+    throw new Error(
+      reason
+        ? `Gemini blocked this prompt (${reason}).`
+        : "Gemini returned an empty response."
+    );
+  }
+
+  return answer.slice(0, 1800);
+}
+
+async function deliverSimsimiResponse({
+  api,
+  event,
+  query,
+  senderName
+}) {
+  await sendTypingIndicatorV2(api, true, event.threadID);
+
+  let answer;
+
+  try {
+    answer = await generateGeminiReply({
+      query,
+      senderName
     });
   } finally {
     await sendTypingIndicatorV2(api, false, event.threadID);
   }
 
-  const data = res.data || {};
+  const info = await sendMessageAsync(
+    api,
+    answer,
+    event.threadID,
+    event.messageID
+  );
 
-  if (data.rateLimited) return;
-
-  if (data.reaction && event.messageID) {
-    withTimeout(
-      api.setMessageReaction(data.reaction, event.messageID, () => {}, true),
-      3000,
-      "setMessageReaction"
-    ).catch(e => console.log("⚠️ Reaction send error:", e.message));
-  }
-
-  if (data.response) {
-    try {
-      const info = await sendMessageAsync(api, data.response, event.threadID, event.messageID);
-      global.GoatBot.onReply.set(info.messageID, {
-        commandName: module.exports.config.name,
-        messageID: info.messageID,
-        author: event.senderID,
-        type: "simsimi"
-      });
-    } catch (e) {
-      console.log("❌ sendMessage error:", JSON.stringify(e));
-      try {
-        const info2 = await sendMessageAsync(api, data.response, event.threadID);
-        global.GoatBot.onReply.set(info2.messageID, {
-          commandName: module.exports.config.name,
-          messageID: info2.messageID,
-          author: event.senderID,
-          type: "simsimi"
-        });
-      } catch (e2) {
-        console.log("❌ sendMessage failed after retry:", JSON.stringify(e2));
-      }
-    }
+  // Only reply-routing metadata is stored.
+  // No conversation transcript or chat history is saved.
+  if (global.GoatBot?.onReply && info?.messageID) {
+    global.GoatBot.onReply.set(info.messageID, {
+      commandName: module.exports.config.name,
+      messageID: info.messageID,
+      author: event.senderID,
+      type: "simsimi"
+    });
   }
 }
 
 function isBotMentioned(event, uid) {
   if (!uid || !event.mentions) return false;
-  return Object.prototype.hasOwnProperty.call(event.mentions, uid);
+
+  return Object.prototype.hasOwnProperty.call(
+    event.mentions,
+    uid
+  );
 }
 
-module.exports.onChat = async function ({ api, event, usersData }) {
-  const text = event.body?.toLowerCase().trim();
+module.exports.onChat = async function ({
+  api,
+  event,
+  usersData
+}) {
+  const rawText = event.body?.trim();
+  const text = rawText?.toLowerCase();
 
-  const senderName = await getUserName(api, event.senderID, usersData);
-  const triggers = ["baby", "bot", "bby", "beby", "bbz", "xan", "jan", "janu", "xanu", "বেবি", "জান", "বট", "জানু"];
+  if (!text) return;
+
+  const senderName = await getUserName(
+    api,
+    event.senderID,
+    usersData
+  );
+
+  const triggers = [
+    "baby", "bot", "bby", "beby", "bbz",
+    "xan", "jan", "janu", "xanu",
+    "বেবি", "জান", "বট", "জানু"
+  ];
+
   const uid = getBotUID(api);
 
   if (isBotMentioned(event, uid)) {
     if (triggerLocks.has(event.threadID)) return;
+
     triggerLocks.add(event.threadID);
+
     try {
-      return await sendGreeting(api, event);
+      return await deliverSimsimiResponse({
+        api,
+        event,
+        query: "Someone mentioned me. Reply with a short, cute Banglish greeting.",
+        senderName
+      });
+    } catch (e) {
+      console.error("[baby/mention] error:", e);
+
+      return api.sendMessage(
+        `❌ Error: ${errMsg(e)}`,
+        event.threadID,
+        event.messageID
+      );
     } finally {
       triggerLocks.delete(event.threadID);
     }
   }
-
-  if (!text) return;
 
   if (triggers.includes(text)) {
     if (triggerLocks.has(event.threadID)) return;
+
     triggerLocks.add(event.threadID);
 
     try {
-      return await sendGreeting(api, event);
-    } finally {
-      triggerLocks.delete(event.threadID);
-    }
-  }
-
-  const matchPrefix = /^(baby|bot|bby|beby|bbz|xan|jan|janu|xanu|বেবি|জান|বট|জানু)\s+/i;
-  if (matchPrefix.test(text)) {
-    const query = text.replace(matchPrefix, "").trim();
-    if (!query) return;
-
-    if (triggerLocks.has(event.threadID)) return;
-    triggerLocks.add(event.threadID);
-
-    try {
-      return await deliverSimsimiResponse({ api, event, query, senderName });
+      return await deliverSimsimiResponse({
+        api,
+        event,
+        query: "Someone called me baby. Reply with a short, sweet, playful Banglish greeting.",
+        senderName
+      });
     } catch (e) {
-      console.error("❌ [baby/onChat] error:", e);
-      return api.sendMessage(`❌ Error: ${errMsg(e)}`, event.threadID, event.messageID);
+      console.error("[baby/greeting] error:", e);
+
+      return api.sendMessage(
+        `❌ Error: ${errMsg(e)}`,
+        event.threadID,
+        event.messageID
+      );
     } finally {
       triggerLocks.delete(event.threadID);
     }
   }
 
-  if (!event.isGroup || !event.senderID || event.senderID === uid) return;
+  const matchPrefix =
+    /^(baby|bot|bby|beby|bbz|xan|jan|janu|xanu|বেবি|জান|বট|জানু)\s+/i;
 
-  try {
-    await API.get("/autoteach", {
-      params: { text: event.body, senderName, senderID: event.senderID, threadID: event.threadID },
-      timeout: 10000
-    });
-  } catch (e) {
-    console.error("❌ [baby/autoteach] network error:", e.message);
+  if (matchPrefix.test(rawText)) {
+    const query = rawText.replace(matchPrefix, "").trim();
+
+    if (!query) return;
+    if (triggerLocks.has(event.threadID)) return;
+
+    triggerLocks.add(event.threadID);
+
+    try {
+      return await deliverSimsimiResponse({
+        api,
+        event,
+        query,
+        senderName
+      });
+    } catch (e) {
+      console.error("[baby/onChat] error:", e);
+
+      return api.sendMessage(
+        `❌ Error: ${errMsg(e)}`,
+        event.threadID,
+        event.messageID
+      );
+    } finally {
+      triggerLocks.delete(event.threadID);
+    }
   }
+
+  // Ordinary group messages are NOT automatically learned.
 };
