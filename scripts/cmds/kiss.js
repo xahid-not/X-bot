@@ -1,77 +1,98 @@
 const axios = require("axios");
-const fs = require("fs");
+const fs = require("fs-extra");
 const path = require("path");
 
-const mahmud = async () => {
-  const base = await axios.get(
-    "https://raw.githubusercontent.com/mahmudx7/HINATA/main/baseApiUrl.json"
-  );
-  return base.data.mahmud;
+module.exports.config = {
+  name: "kiss",
+  version: "1.0.0",
+  hasPermssion: 0,
+  credits: "SHAHADAT SAHU",
+  description: "Generate a couple kiss image using sender and target Facebook UID via Avatar Canvas API",
+  commandCategory: "banner",
+  usePrefix: true,
+  usages: "[@mention | reply]",
+  cooldowns: 5,
+  dependencies: {
+    "axios": "",
+    "fs-extra": "",
+    "path": ""
+  }
 };
 
-/**
- * @author MahMUD
- * @author: do not delete it
- */
+module.exports.run = async function ({ event, api }) {
+  const { threadID, messageID, senderID, mentions, messageReply } = event;
 
-module.exports = {
-  config: {
-    name: "kiss",
-    version: "1.7",
-    author: "MahMUD",
-    countDown: 5,
-    role: 0,
-    longDescription: "Generate anime-style kiss image",
-    category: "love",
-    guide: "{pn} @mention"
-  },
+  let targetID = null;
 
-  onStart: async function ({ message, event, api }) {
-    try {
-      const obfuscatedAuthor = String.fromCharCode(77, 97, 104, 77, 85, 68);
-      if (module.exports.config.author.trim() !== obfuscatedAuthor) {
-        return api.sendMessage(
-          "❌ | You are not authorized to change the author name.",
-          event.threadID,
-          event.messageID
-        );
-      }
+  if (mentions && Object.keys(mentions).length > 0) {
+    targetID = Object.keys(mentions)[0];
+  } else if (messageReply && messageReply.senderID) {
+    targetID = messageReply.senderID;
+  }
 
-      const mention = Object.keys(event.mentions);
-      if (mention.length === 0) {
-        return message.reply("Please mention someone to kiss 💋");
-      }
+  if (!targetID) {
+    return api.sendMessage(
+      "Please reply or mention someone......",
+      threadID,
+      messageID
+    );
+  }
 
-      const senderID = event.senderID;
-      const targetID = mention[0];
+  try {
+    const apiList = await axios.get(
+      "https://gitlab.com/shahadat-sahu/sahu-api/-/raw/main/API.json"
+    );
 
-      const base = await mahmud();
-      const apiURL = `${base}/api/kiss`;
+    const AVATAR_CANVAS_API = apiList.data.AvatarCanvas;
 
-      const response = await axios.post(
-        apiURL,
-        { senderID, targetID },
-        { responseType: "arraybuffer" }
-      );
+    const res = await axios.post(
+      `${AVATAR_CANVAS_API}/api`,
+      {
+        cmd: "kiss",
+        senderID,
+        targetID
+      },
+      { responseType: "arraybuffer", timeout: 30000 }
+    );
 
-      const imgPath = path.join(
-        __dirname,
-        `kiss_${senderID}_${targetID}.png`
-      );
-      fs.writeFileSync(imgPath, Buffer.from(response.data, "binary"));
+    const imgPath = path.join(
+      __dirname,
+      "cache",
+      `kiss_${senderID}_${targetID}.png`
+    );
 
-      message.reply({
-        body: "💋 Here’s your kiss image!",
+    fs.writeFileSync(imgPath, res.data);
+
+    const captions = [
+      "কারণে অকারণে প্রতিদিন নিয়ম করে, তোমার মায়াতে জড়িয়ে পড়ছি আমি বারেবার!🌷",
+      "তোমাকে কেন ভালোবাসি তার কোন বিশেষ কারণ আমার জানা নাই! কিন্তু তোমার কাছে সারাজীবন থেকে যাওয়ার হাজারটা কারণ আমার কাছে আছে!💚",
+      "তোমার সাথে কাটানো সময়গুলোর কথা চিন্তা করলে মনে হয়, এই এক জনম তোমার সাথে অনেক কম সময়!😘",
+      "প্রিয় তুমি কি আমার জীবনের সেই গল্প হবে? যেই গল্পের শুরু থাকবে, কিন্তু কোনো শেষ থাকবে না!♥️",
+      "তুমি পাশে থাকলে সবকিছু সুন্দর মনে হয়, জীবন যেন একটা মধুর কবিতায় রূপ নেয়!😍",
+      "তোমাকে ছাড়া জীবনটা অসম্পূর্ণ, তুমি আমার ভালোবাসার পূর্ণতা!🧡",
+      "তুমি আমার স্বপ্ন, তুমি আমার জীবনের প্রতিটি সুন্দর মুহূর্ত!🌻",
+      "আমার চোখে তোমার অস্থিত্ব খোঁজতে এসোনা, হারিয়ে যাবে! কেননা আমার পুরোটা-জুরেই তোমারই নির্বাক আনাগোনা!🌺",
+      "তোমাতে শুরু তোমাতেই শেষ, তুমি না থাকলে আমাদের গল্প এখানেই শেষ!😘",
+      "ভালোবাসা যদি কোনো অনুভূতি হয়, তাহলে তোমার প্রতি আমার অনুভূতি পৃথিবীর সেরা অনুভূতি।🌻ღ🌺"
+    ];
+
+    const caption = captions[Math.floor(Math.random() * captions.length)];
+
+    return api.sendMessage(
+      {
+        body: caption,
         attachment: fs.createReadStream(imgPath)
-      });
+      },
+      threadID,
+      () => fs.unlinkSync(imgPath),
+      messageID
+    );
 
-      setTimeout(() => {
-        if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-      }, 10000);
-
-    } catch (err) {
-      console.error("Error in kiss command:", err.message || err);
-      message.reply("🥹 error, contact MahMUD.");
-    }
+  } catch {
+    return api.sendMessage(
+      "API Error Call Boss SAHU",
+      threadID,
+      messageID
+    );
   }
 };
