@@ -622,10 +622,10 @@ module.exports.onChat = async function ({
   );
 
   const triggers = [
-    "baby", "bot", "bby", "beby", "bbz",
-    "xan", "jan", "janu", "xanu",
-    "বেবি", "জান", "বট", "জানু"
-  ];
+  "bot", "bby", "beby", "bbz",
+  "xan", "jan", "janu", "xanu",
+  "বেবি", "জান", "বট", "জানু"
+];
 
   const uid = getBotUID(api);
 
@@ -680,8 +680,7 @@ module.exports.onChat = async function ({
   }
 
   const matchPrefix =
-    /^(baby|bot|bby|beby|bbz|xan|jan|janu|xanu|বেবি|জান|বট|জানু)\s+/i;
-
+  /^(bot|bby|beby|bbz|xan|jan|janu|xanu|বেবি|জান|বট|জানু)\s+/i;
   if (matchPrefix.test(rawText)) {
     const query = rawText.replace(matchPrefix, "").trim();
 
