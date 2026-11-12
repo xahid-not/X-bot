@@ -544,13 +544,14 @@ async function generateGeminiReply({ query, senderName }) {
         maxOutputTokens: 512
       }
     },
-    {
-      params: { key: apiKey },
-      timeout: 25000,
-      headers: {
-        "Content-Type": "application/json"
-      }
-    }
+    
+{
+  params: { key: apiKey },
+  timeout: 60000,
+  headers: {
+    "Content-Type": "application/json"
+  }
+}
   );
 
   const parts =
