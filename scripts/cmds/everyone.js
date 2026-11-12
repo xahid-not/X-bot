@@ -39,19 +39,20 @@ module.exports = {
       );
     }
 
-    // Only group admins can use this command
-    const isAdmin = (info.adminIDs || []).some(
-      admin => String(admin.id) === String(senderID)
-    );
+    // Only bot admins can use this command
+const botAdmins = global.GoatBot.config.ADMINBOT || [];
 
-    if (!isAdmin) {
-      return api.sendMessage(
-        "❌ Only group admins can use this command.",
-        threadID,
-        event.messageID
-      );
-    }
+const isBotAdmin = botAdmins.some(
+  id => String(id) === String(senderID)
+);
 
+if (!isBotAdmin) {
+  return api.sendMessage(
+    "❌ Only bot admins can use this command.",
+    threadID,
+    event.messageID
+  );
+}
     // Stop an active mention process
     if (action === "stop") {
       const run = activeRuns.get(threadID);
