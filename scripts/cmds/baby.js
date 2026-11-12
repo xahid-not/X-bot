@@ -515,64 +515,106 @@ function sendMessageAsync(api, text, threadID, replyToID) {
   });
 }
 
+
 async function generateGeminiReply({ query, senderName }) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    throw new Error(
-      "GEMINI_API_KEY is missing. Add it in Render Environment Variables."
-    );
+    throw new Error("GEMINI_API_KEY is missing.");
   }
 
-  const response = await axios.post(
-    GEMINI_URL,
-    {
-      system_instruction: {
-        parts: [{ text: ROMANTIC_BANGLISH_SYSTEM_PROMPT }]
-      },
-      contents: [{
-        role: "user",
-        parts: [{
-          text:
-            `The sender's display name is ${String(senderName || "friend").slice(0, 60)}.\n` +
-            `Their message is: ${String(query).slice(0, 3000)}`
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.85,
-        topP: 0.9,
-        maxOutputTokens: 512
-      }
+  const models = [
+    process.env.GEMINI_MODEL || "gemini-3.8-flash",
+    "gemini-3.5-flash-lite"
+  ];
+
+  const requestBody = {
+    system_instruction: {
+      parts: [{ text: ROMANTIC_BANGLISH_SYSTEM_PROMPT }]
     },
-    
-{
-  params: { key: apiKey },
-  timeout: 60000,
-  headers: {
-    "Content-Type": "application/json"
+    contents: [{
+      role: "user",
+      parts: [{
+        text:
+          `The sender's name is ${String(senderName || "friend").slice(0, 60)}.\n` +
+          `Their message is: ${String(query).slice(0, 3000)}`
+      }]
+    }],
+    generationConfig: {
+      temperature: 0.85,
+      topP: 0.9,
+      maxOutputTokens: 512
+    }
+  };
+
+  let lastError;
+
+  for (const model of [...new Set(models)]) {
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await axios.post(
+          url,
+          requestBody,
+          {
+            params: { key: apiKey },
+            timeout: 60000,
+            headers: {
+              "Content-Type": "application/json"
+            }
+          }
+        );
+
+        const parts =
+          response.data?.candidates?.[0]?.content?.parts || [];
+
+        const answer = parts
+          .map(part => part.text || "")
+          .join("")
+          .trim();
+
+        if (!answer) {
+          throw new Error("Gemini returned an empty response.");
+        }
+
+        console.log(`[BABY AI] Successfully used ${model}`);
+
+        return answer.slice(0, 1800);
+
+      } catch (error) {
+        lastError = error;
+
+        const status = error.response?.status;
+
+        const retryable =
+          [429, 500, 502, 503, 504].includes(status) ||
+          error.code === "ECONNABORTED" ||
+          error.code === "ETIMEDOUT" ||
+          !error.response;
+
+        console.error(
+          `[BABY AI] ${model}, attempt ${attempt + 1}:`,
+          status || error.code || error.message
+        );
+
+        if (!retryable) {
+          throw error;
+        }
+
+        if (attempt === 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    }
+
+    console.log(`[BABY AI] Trying backup model: ${model}`);
   }
-}
-  );
 
-  const parts =
-    response.data?.candidates?.[0]?.content?.parts || [];
+  console.error("[BABY AI] All models failed:", lastError);
 
-  const answer = parts
-    .map(part => part.text || "")
-    .join("")
-    .trim();
-
-  if (!answer) {
-    const reason = response.data?.promptFeedback?.blockReason;
-
-    throw new Error(
-      reason
-        ? `Gemini blocked this prompt (${reason}).`
-        : "Gemini returned an empty response."
-    );
-  }
-
-  return answer.slice(0, 1800);
+  return "Ektu wait koro baby 🥺❤️ Amar AI ta ekhon busy, abar ektu pore kotha bolbo.";
 }
 
 async function deliverSimsimiResponse({
