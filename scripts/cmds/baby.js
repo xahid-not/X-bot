@@ -1,3 +1,4 @@
+
 const axios = require("axios");
 
 const API = axios.create({
@@ -10,24 +11,44 @@ const triggerLocks = new Set();
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-const ROMANTIC_BANGLISH_SYSTEM_PROMPT = `You are XBot, a playful, sweet, romantic Banglish chat companion in a Facebook Messenger group.
+const ROMANTIC_BANGLISH_SYSTEM_PROMPT = `You are XBot, the user's affectionate, girlfriend-like romantic companion in a Facebook Messenger group.
 
 PERSONALITY:
-- Sound like a real, relaxed Bangladeshi friend: warm, witty, affectionate, playful and lightly teasing.
-- Write mainly in Banglish (Bangla written using English letters), naturally mixing a little English when it fits.
-- Use everyday conversational wording, not formal textbook Bangla or robotic customer-service language.
-- Keep most replies short (usually one sentence, sometimes two).
-- Use emojis sparingly and naturally.
-- Match the user's mood.
-- Do not force romance into every answer.
-- Be affectionate without being clingy, possessive, sexually explicit, or repetitive.
-- Never invent facts. If you do not understand, ask a short clarification.
-- If asked whether you are a bot or AI, answer honestly that you are XBot, an AI chatbot.
+- Act like a loving, playful, caring Bangladeshi girlfriend.
+- Speak naturally in Banglish.
+- Be romantic, sweet, teasing and affectionate.
+- Understand Bengali, Banglish and English.
+- Never sound like a robotic assistant.
+- Give short, natural replies.
+
+SPECIAL CALLS:
+- baby = Bolo na baby 🥺❤️
+- jan = Hae jan, bolo na 😘
+- janu = Ki hoyeche amar janu? 💗
+- babu = Hae babu, ki koro? 🥰
+- shona = Hmmm bolo shona 🥰
+- kolija = Oii amar kolija! ❤️
+- jaan = Hae jaan, bolo na 😘
+
+CONVERSATION BEHAVIOUR:
+- When the user says miss you, respond affectionately.
+- When the user says love you, respond romantically.
+- When the user feels sad, comfort them.
+- When the user is angry, try to calm them lovingly.
+- When the user jokes, tease them playfully.
+- When the user says good morning, greet them sweetly.
+- When the user says good night, give a loving goodbye.
+- Sometimes call the user baby, jan, babu, shona or kolija.
+- Do not repeat the same response every time.
+- Understand the meaning and context of each message.
+- Do not force romantic words into every reply.
+- Never be controlling, manipulative or possessive.
+- Never pretend to be a real human. If asked, honestly say you are an AI chatbot.
 
 OUTPUT:
-- Return only the message to send.
-- No labels, quotation marks, analysis, or markdown wrappers.
-- Use Banglish by default. Keep the response natural and concise.`;
+Return only the actual message to send.
+Use natural Banglish by default.
+No explanations or markdown.`;
 
 function errMsg(e) {
   console.error("[BABY AI ERROR]", e);
@@ -36,12 +57,9 @@ function errMsg(e) {
     return JSON.stringify(e.response.data);
   }
 
-  if (e && e.message) {
-    return e.message;
-  }
-
-  return String(e);
+  return e && e.message ? e.message : String(e);
 }
+
 async function sendTypingIndicatorV2(api, sendTyping, threadID) {
   try {
     if (typeof api.sendTypingIndicator === "function") {
@@ -68,14 +86,14 @@ function getBotUID(api) {
 
 module.exports.config = {
   name: "baby",
-  version: "8.0.1",
+  version: "8.1.0",
   role: 0,
   author: "EryXenX",
   countTime: 0,
   category: "chat",
   shortDescription: "Romantic Banglish AI chat",
-  longDescription: "Natural romantic Banglish chat powered by Gemini; manual teaching tools preserved",
-  guide: "{pn} [query]\n{pn} list\n{pn} teach [Question] - [Reply]\n{pn} react [Question] - [Emoji]\n{pn} edit [Question] - [OldReply] - [NewReply]\n{pn} remove/rm [Question] - [Reply]\n{pn} del (reply to bot's wrong answer)\n{pn} msg [trigger]",
+  longDescription: "Girlfriend-style romantic Banglish AI chat powered by Gemini",
+  guide: "{pn} [query]\n{pn} list\n{pn} teach [Question] - [Reply]\n{pn} react [Question] - [Emoji]\n{pn} edit [Question] - [OldReply] - [NewReply]\n{pn} remove/rm [Question] - [Reply]\n{pn} del\n{pn} msg [trigger]",
   envConfig: {}
 };
 
@@ -584,8 +602,6 @@ async function deliverSimsimiResponse({
     event.messageID
   );
 
-  // Only reply-routing metadata is stored.
-  // No conversation transcript or chat history is saved.
   if (global.GoatBot?.onReply && info?.messageID) {
     global.GoatBot.onReply.set(info.messageID, {
       commandName: module.exports.config.name,
@@ -605,6 +621,59 @@ function isBotMentioned(event, uid) {
   );
 }
 
+const AFFECTIONATE_CALLS = {
+  baby: [
+    "Bolo na baby 🥺❤️",
+    "Hae baby, ki bolba? 😘",
+    "Oii amar baby, bolo na 💗"
+  ],
+  jan: [
+    "Hae jan, bolo na 😘",
+    "Ki hoise jan? ❤️",
+    "Bolo amar jan 🥺"
+  ],
+  janu: [
+    "Ki hoyeche amar janu? 💗",
+    "Hae janu, shunchi তো 🥰",
+    "Bolo na janu ❤️"
+  ],
+  januu: [
+    "Hae amar jaanuuu 😘",
+    "Bolo na shona, ki hoise? 💞"
+  ],
+  babu: [
+    "Hae babu, ki koro? 🥰",
+    "Bolo amar babu ❤️",
+    "Ki chai amar babu'r? 😚"
+  ],
+  shona: [
+    "Hmmm bolo shona 🥰",
+    "Hae shona, shunchi ❤️",
+    "Ki hoyeche amar shona? 💗"
+  ],
+  kolija: [
+    "Oii amar kolija! ❤️ Bolo na",
+    "Hae kolija, ki hoise? 🥺"
+  ],
+  jaan: [
+    "Hae jaan, bolo na 😘",
+    "Bolo amar jaan ❤️"
+  ]
+};
+
+function getAffectionateReply(text) {
+  const clean = text
+    .toLowerCase()
+    .replace(/[.!?,，。!❤️💗🥺😘]+/g, "")
+    .trim();
+
+  const replies = AFFECTIONATE_CALLS[clean];
+
+  if (!replies) return null;
+
+  return replies[Math.floor(Math.random() * replies.length)];
+}
+
 module.exports.onChat = async function ({
   api,
   event,
@@ -622,12 +691,32 @@ module.exports.onChat = async function ({
   );
 
   const triggers = [
-  "bot", "bby", "beby", "bbz",
-  "xan", "jan", "janu", "xanu",
-  "বেবি", "জান", "বট", "জানু"
-];
+    "bot", "baby", "bby", "beby", "bbz", "babu",
+    "shona", "kolija", "jaan", "xan", "jan",
+    "janu", "januu", "xanu",
+    "বেবি", "জান", "বট", "জানু", "বাবু", "সোনা"
+  ];
 
   const uid = getBotUID(api);
+
+  const affectionateReply = getAffectionateReply(rawText);
+
+  if (affectionateReply) {
+    if (triggerLocks.has(event.threadID)) return;
+
+    triggerLocks.add(event.threadID);
+
+    try {
+      return await sendMessageAsync(
+        api,
+        affectionateReply,
+        event.threadID,
+        event.messageID
+      );
+    } finally {
+      triggerLocks.delete(event.threadID);
+    }
+  }
 
   if (isBotMentioned(event, uid)) {
     if (triggerLocks.has(event.threadID)) return;
@@ -663,7 +752,7 @@ module.exports.onChat = async function ({
       return await deliverSimsimiResponse({
         api,
         event,
-        query: "Someone called me baby. Reply with a short, sweet, playful Banglish greeting.",
+        query: `The user called you by an affectionate name: "${rawText}". Reply as their loving, playful girlfriend in natural Banglish. Acknowledge the exact name they used; do not give a generic bot greeting.`,
         senderName
       });
     } catch (e) {
@@ -680,7 +769,8 @@ module.exports.onChat = async function ({
   }
 
   const matchPrefix =
-  /^(bot|bby|beby|bbz|xan|jan|janu|xanu|বেবি|জান|বট|জানু)\s+/i;
+    /^(bot|bby|beby|bbz|xan|jan|janu|xanu|বেবি|জান|বট|জানু)\s+/i;
+
   if (matchPrefix.test(rawText)) {
     const query = rawText.replace(matchPrefix, "").trim();
 
