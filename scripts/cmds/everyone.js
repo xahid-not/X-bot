@@ -40,7 +40,7 @@ module.exports = {
     }
 
     // Only bot admins can use this command
-const botAdmins = global.GoatBot.config.ADMINBOT || [];
+const botAdmins = global.GoatBot.config.adminBot || [];
 
 const isBotAdmin = botAdmins.some(
   id => String(id) === String(senderID)
