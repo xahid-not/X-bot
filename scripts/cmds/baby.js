@@ -668,16 +668,38 @@ module.exports.onChat = async function ({
 
   const uid = getBotUID(api);
 
-  const affectionateReply = getAffectionateReply(rawText);
-  if (affectionateReply) {
-    if (triggerLocks.has(event.threadID)) return;
-    triggerLocks.add(event.threadID);
-    try {
-      return await sendMessageAsync(api, affectionateReply, event.threadID, event.messageID);
-    } finally {
-      triggerLocks.delete(event.threadID);
+  
+const affectionateReply = getAffectionateReply(rawText);
+
+if (affectionateReply) {
+  if (triggerLocks.has(event.threadID)) return;
+
+  triggerLocks.add(event.threadID);
+
+  try {
+    const info = await sendMessageAsync(
+      api,
+      affectionateReply,
+      event.threadID,
+      event.messageID
+    );
+
+    // Register this message so the user can continue chatting.
+    if (global.GoatBot?.onReply && info?.messageID) {
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName: module.exports.config.name,
+        messageID: info.messageID,
+        author: event.senderID,
+        type: "simsimi"
+      });
     }
+
+    return info;
+  } finally {
+    triggerLocks.delete(event.threadID);
   }
+}
+
 
   if (isBotMentioned(event, uid)) {
     if (triggerLocks.has(event.threadID)) return;
