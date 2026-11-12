@@ -326,14 +326,27 @@ ${formatted}
       );
     }
 
-    if (!query) {
-      // A bare `baby` command gets one local reply; do not call Gemini.
-      return api.sendMessage(
-        "Bolo na baby 🥺❤️",
-        event.threadID,
-        event.messageID
-      );
-    }
+    
+if (!query) {
+  const info = await sendMessageAsync(
+    api,
+    "Bolo na baby 🥺❤️",
+    event.threadID,
+    event.messageID
+  );
+
+  if (global.GoatBot?.onReply && info?.messageID) {
+    global.GoatBot.onReply.set(info.messageID, {
+      commandName: module.exports.config.name,
+      messageID: info.messageID,
+      author: event.senderID,
+      type: "simsimi"
+    });
+  }
+
+  return;
+}
+
 
     return deliverSimsimiResponse({
       api,
