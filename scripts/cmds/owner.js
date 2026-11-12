@@ -19,17 +19,11 @@ module.exports = {
     const ownerText = 
 `Owner Info
 Xahid Doesn'tExist
-xxxahidsus
-Lifeless
-03:03💓
-Graphic Designer
-Uneducated
 With great power comes great responsibility.
 Contact:
  Facebook : https://www.facebook.com/xxxahidsus
  Page : Ultimate GFX
-│ 📞 WhatsApp  : 01923879906
-╰────────────────╯`;
+│ 📞 WhatsApp  : 01923879906`;
 
     const cacheDir = path.join(__dirname, "cache");
     const imgPath = path.join(cacheDir, "owner.jpg");
